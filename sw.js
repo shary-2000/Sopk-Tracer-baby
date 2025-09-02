@@ -6,8 +6,6 @@ self.addEventListener('install', event => {
       '/manifest.json',
       '/icon-192.png',
       '/icon-512.png'
-      dayDiv.setAttribute('data-progress', progress || 0);
-
     ]))
   );
 });
@@ -17,3 +15,4 @@ self.addEventListener('fetch', event => {
     caches.match(event.request).then(response => response || fetch(event.request))
   );
 });
+
