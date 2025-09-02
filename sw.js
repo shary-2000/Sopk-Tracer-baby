@@ -1,7 +1,7 @@
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open('v1').then(cache => 
-      cache.addAll([
+      const CACHE_NAME = 'v2';
         '/',
         '/index.html',
         '/manifest.json',
@@ -13,3 +13,4 @@ self.addEventListener('install', event => {
     )
   );
 });
+
