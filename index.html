@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOPK Tracker - Calendrier fonctionnel</title>
+<link rel="manifest" href="manifest.json">
+<style>
+body { font-family:'Arial', sans-serif; background:#f4f4f9; margin:0; padding:10px; color:#333; }
+h1 { text-align:center; color:#6a5acd; font-size:1.5em; margin-bottom:5px; }
+.section { background:#fff; margin:10px 0; padding:15px; border-radius:15px; box-shadow:0 3px 8px rgba(0,0,0,0.1); }
+h2 { cursor:pointer; margin:0 0 10px 0; font-size:1.1em; }
+h3 { margin:10px 0 5px 0; font-size:1em; color:#6a5acd; }
+.tasks { display:block; margin-top:5px; }
+label { display:block; margin:5px 0; font-size:1em; padding:5px; border-radius:10px; transition:0.2s; }
+label:hover { background:#f0f0f0; }
+input[type=checkbox] { transform:1.3; margin-right:10px; }
+input[type=time] { margin-left:10px; border-radius:5px; border:1px solid #ccc; padding:3px; }
+#progressBarContainer { background:#ddd; border-radius:15px; height:25px; width:100%; margin:10px 0; overflow:hidden; }
+#progressBar { height:100%; width:0%; background:#6a5acd; text-align:center; color:#fff; line-height:25px; font-weight:bold; transition:width 0.5s; }
+#message { text-align:center; margin:5px 0; font-weight:bold; color:#ff4500; }
+#dailyTip { text-align:center; font-style:italic; margin-bottom:10px; color:#228b22; font-size:0.9em; }
+button { background:#6a5acd; color:#fff; border:none; padding:10px 15px; border-radius:10px; cursor:pointer; font-size:1em; margin-top:10px; width:100%; }
+button:hover { background:#574fcf; }
+#calendar { display:flex; flex-wrap: wrap; gap:5px; justify-content:center; margin-top:5px; }
+.day { width:50px; min-height:50px; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:10px; background:#ddd; cursor:pointer; user-select:none; font-weight:bold; transition:0.2s; font-size:0.9em; padding:2px;}
+.day:hover { transform:scale(1.05);}
+.day.selected { border: 2px solid #ff4500; }
+#monthControls { display:flex; justify-content:space-between; margin-bottom:10px; font-weight:bold; font-size:1em; }
+.hours { font-size:0.6em; text-align:center; margin-top:2px; color:#333; }
+.hidden { display:none; }
+</style>
+</head>
+<body>
+
+<h1>📋 SOPK Tracker de Babymuch</h1>
+<div id="dailyTip"></div>
+<div id="progressBarContainer"><div id="progressBar">0%</div></div>
+<div id="message"></div>
+
+<!-- Calendrier -->
+<div class="section">
+  <h2>📅 Calendrier</h2>
+  <div id="monthControls">
+    <button onclick="changeMonth(-1)">⬅</button>
+    <div id="monthLabel"></div>
+    <button onclick="changeMonth(1)">➡</button>
+  </div>
+  <div id="calendar"></div>
+</div>
+
+<!-- Check-list détaillée par moments -->
+<div class="section">
+  <h2 onclick="toggleSection('taskList')">✅ Check-list détaillée</h2>
+  <div id="taskList" class="tasks">
+
+    <h3>🌅 Matin</h3>
+    <label>🕘 Heure de lever <input type="time" id="wakeTime"></label>
+    <label>💧 <input type="checkbox" class="task"> Boire un grand verre d’eau</label>
+    <label>🫀​ <input type="checkbox" class="task"> Ovastart</label>
+    <label>🧘 <input type="checkbox" class="task"> Étirements ou méditation</label>
+    <label>🍳 <input type="checkbox" class="task"> Petit-déjeuner protéines/fibres</label>
+
+    <h3>🌞 Journée</h3>
+    <label>🚶 <input type="checkbox" class="task"> Bouger toutes les 60-90 min</label>
+    <label>💧 <input type="checkbox" class="task"> Hydratation régulière</label>
+    <label>🥗 <input type="checkbox" class="task"> Repas équilibré</label>
+
+    <h3>🏃 Après-midi</h3>
+    <label>🏋️ <input type="checkbox" class="task"> Activité physique modérée</label>
+    <label>🚶 <input type="checkbox" class="task"> Courte marche après repas</label>
+
+    <h3>🌙 Soirée</h3>
+    <label>🍽 <input type="checkbox" class="task"> Dîner léger</label>
+    <label>📵 <input type="checkbox" class="task"> Réduire écrans</label>
+    <label>🫀​ <input type="checkbox" class="task"> Ovastart</label>
+
+    <h3>🛏 Sommeil</h3>
+    <label>🕘 Heure de coucher <input type="time" id="sleepTime"></label>
+    <label>😴 <input type="checkbox" class="task"> Dormir 7-9 h</label>
+
+    <h3>⚠️ À éviter</h3>
+    <label>🍬 <input type="checkbox" class="task"> Sucres rapides / grignotage</label>
+
+  </div>
+  <button onclick="resetChecklist()">🔄 Réinitialiser la journée</button>
+</div>
+
+<script>
+// --- Variables globales ---
+let currentDate = new Date();
+let selectedDate = new Date();
+const tasks = document.querySelectorAll('.task');
+const progressBar = document.getElementById('progressBar');
+const message = document.getElementById('message');
+const dailyTip = document.getElementById('dailyTip');
+const calendar = document.getElementById('calendar');
+const monthLabel = document.getElementById('monthLabel');
+
+const tips = [
+  "Respire profondément 5 minutes 🌿",
+  "Bouge après chaque repas 🚶‍♀️",
+  "Hydrate-toi régulièrement 💧",
+  "Moment calme ce soir ✨",
+  "Petit-déjeuner protéiné 🍳",
+  "Mini-marche même si occupée 🏞"
+];
+
+// --- Fonctions utilitaires ---
+function toggleSection(id){ document.getElementById(id).classList.toggle('hidden'); }
+function getDateKey(date){ return `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`; }
+
+// --- Gestion des heures ---
+function loadTimes(date){
+  const key = getDateKey(date);
+  document.getElementById('wakeTime').value = localStorage.getItem(`${key}_wakeTime`) || "";
+  document.getElementById('sleepTime').value = localStorage.getItem(`${key}_sleepTime`) || "";
+}
+
+document.getElementById('wakeTime').onchange = ()=>{
+  const key = getDateKey(selectedDate);
+  localStorage.setItem(`${key}_wakeTime`, document.getElementById('wakeTime').value);
+};
+document.getElementById('sleepTime').onchange = ()=>{
+  const key = getDateKey(selectedDate);
+  localStorage.setItem(`${key}_sleepTime`, document.getElementById('sleepTime').value);
+};
+
+// --- Chargement des tâches ---
+function loadTasks(date){
+  const keyPrefix = getDateKey(date);
+  tasks.forEach((task,i)=>{
+    const saved = localStorage.getItem(`${keyPrefix}_task_${i}`);
+    task.checked = saved==='true';
+    task.onchange = ()=>{
+      localStorage.setItem(`${keyPrefix}_task_${i}`, task.checked);
+      updateProgress(date);
+    }
+  });
+  loadTimes(date);
+  updateProgress(date);
+  dailyTip.textContent = tips[date.getDate()%tips.length];
+}
+
+// --- Réinitialiser ---
+function resetChecklist(){
+  const keyPrefix = getDateKey(selectedDate);
+  tasks.forEach((task,i)=>{
+    task.checked=false;
+    localStorage.setItem(`${keyPrefix}_task_${i}`, false);
+  });
+  document.getElementById('wakeTime').value = "";
+  document.getElementById('sleepTime').value = "";
+  localStorage.setItem(`${keyPrefix}_wakeTime`, "");
+  localStorage.setItem(`${keyPrefix}_sleepTime`, "");
+  updateProgress(selectedDate);
+}
+
+// --- Progression ---
+function updateProgress(date){
+  const keyPrefix = getDateKey(date);
+  let checked = 0;
+  tasks.forEach((task,i)=>{
+    const saved = localStorage.getItem(`${keyPrefix}_task_${i}`);
+    if(saved==='true') checked++;
+  });
+  const percent = Math.round((checked/tasks.length)*100);
+  progressBar.style.width = percent+'%';
+  progressBar.textContent = percent+'%';
+  localStorage.setItem(getDateKey(date)+'_progress', percent);
+  drawCalendar();
+  if(percent===100) message.textContent="🎉 Check-list complétée !";
+  else if(percent>=70) message.textContent="👍 Bravo babymouche ! Continue !";
+  else if(percent>=40) message.textContent="💪 Tu es sur la bonne voie !";
+  else message.textContent="";
+}
+
+// --- Calendrier ---
+function drawCalendar(){
+  calendar.innerHTML='';
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  monthLabel.textContent = currentDate.toLocaleString('fr-FR',{month:'long', year:'numeric'});
+  const daysInMonth = new Date(year, month+1,0).getDate();
+  for(let d=1; d<=daysInMonth; d++){
+    const dayDiv=document.createElement('div');
+    dayDiv.classList.add('day');
+    const date = new Date(year, month, d);
+    const key = getDateKey(date);
+    dayDiv.innerHTML = `<div>${d}</div>`;
+
+    // Progression
+    const progress = localStorage.getItem(key+'_progress');
+    if(progress){
+      const p=parseInt(progress);
+      dayDiv.style.background = p>=100 ? '#4CAF50' : p>=50 ? '#FFB74D' : '#ddd';
+    } else dayDiv.style.background='#ddd';
+
+    // Heures
+    const wake = localStorage.getItem(key+'_wakeTime');
+    const sleep = localStorage.getItem(key+'_sleepTime');
+    const hoursDiv = document.createElement('div');
+    hoursDiv.classList.add('hours');
+    hoursDiv.innerHTML = `${wake ? '⏰'+wake : ''}<br>${sleep ? '🌙'+sleep : ''}`;
+    dayDiv.appendChild(hoursDiv);
+
+    // Jour sélectionné
+    if(date.toDateString() === selectedDate.toDateString()){
+      dayDiv.classList.add('selected');
+    }
+
+    dayDiv.onclick = ()=>{
+      selectedDate = date;
+      loadTasks(date);
+      drawCalendar();
+    }
+
+    calendar.appendChild(dayDiv);
+  }
+}
+
+// --- Changement de mois ---
+function changeMonth(offset){
+  currentDate.setMonth(currentDate.getMonth()+offset);
+  drawCalendar();
+}
+
+// --- Initialisation ---
+drawCalendar();
+loadTasks(selectedDate);
+
+// --- PWA Service Worker ---
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js')
+  .then(()=>console.log('Service Worker Registered'));
+}
+</script>
+</body>
+</html>
